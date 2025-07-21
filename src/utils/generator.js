@@ -341,8 +341,8 @@ containerRuntime: "${containerRuntime}"`;
   }
 
   if (installMethod === 'yaml') {
-    // Generate comprehensive standalone YAML
-    let standaloneContent = `# WhaTap Kubernetes Agent - Standalone Installation
+    // Generate whatap-open-agent standalone YAML
+    let standaloneContent = `# WhaTap Open Agent - Standalone Installation
 # This file contains all necessary resources for manual installation
 
 ---
@@ -369,62 +369,74 @@ stringData:
 apiVersion: v1
 kind: ServiceAccount
 metadata:
-  name: whatap-agent
+  name: whatap-open-agent-sa
   namespace: whatap-monitoring
 
 ---
 apiVersion: rbac.authorization.k8s.io/v1
 kind: ClusterRole
 metadata:
-  name: whatap-agent
+  name: whatap-open-agent-role
 rules:
-- apiGroups: [""]
-  resources: ["nodes", "nodes/metrics", "services", "endpoints", "pods"]
+- apiGroups: ["*"]
+  resources: ["pods", "services", "endpoints", "namespaces"]
   verbs: ["get", "list", "watch"]
-- apiGroups: ["apps"]
-  resources: ["deployments", "replicasets", "daemonsets", "statefulsets"]
-  verbs: ["get", "list", "watch"]
-- apiGroups: ["batch"]
-  resources: ["jobs", "cronjobs"]
-  verbs: ["get", "list", "watch"]
+- nonResourceURLs: [ "/metrics" ]
+  verbs: ["*"]
+- apiGroups:
+  - ""
+  resources:
+  - "pods/exec"
+  verbs:
+  - "create"
+- apiGroups:
+  - ""
+  resources:
+  - "configmaps"
+  verbs:
+  - "*"
+- nonResourceURLs:
+  - "/metrics"
+  verbs:
+  - "*"
 
 ---
 apiVersion: rbac.authorization.k8s.io/v1
 kind: ClusterRoleBinding
 metadata:
-  name: whatap-agent
-roleRef:
-  apiGroup: rbac.authorization.k8s.io
-  kind: ClusterRole
-  name: whatap-agent
+  name: whatap-open-agent-role-binding
 subjects:
 - kind: ServiceAccount
-  name: whatap-agent
+  name: whatap-open-agent-sa
   namespace: whatap-monitoring
+roleRef:
+  kind: ClusterRole
+  name: whatap-open-agent-role
+  apiGroup: rbac.authorization.k8s.io
 
 ---
 apiVersion: apps/v1
-kind: DaemonSet
+kind: Deployment
 metadata:
-  name: whatap-node-agent
+  name: whatap-open-agent
   namespace: whatap-monitoring
   labels:
-    app: whatap-node-agent
+    app: whatap-open-agent
 spec:
+  replicas: 1
   selector:
     matchLabels:
-      app: whatap-node-agent
+      app: whatap-open-agent
   template:
     metadata:
       labels:
-        app: whatap-node-agent
+        app: whatap-open-agent
     spec:
-      serviceAccountName: whatap-agent
-      hostNetwork: true
-      hostPID: true
+      serviceAccountName: whatap-open-agent-sa
       containers:
-      - name: whatap-node-agent
-        image: "whatap/kube_mon:${imageVersion}"
+      - name: whatap-open-agent
+        image: public.ecr.aws/whatap/open_agent:latest
+        imagePullPolicy: Always
         env:
         - name: WHATAP_LICENSE
           valueFrom:
@@ -441,80 +453,195 @@ spec:
             secretKeyRef:
               name: whatap-credentials
               key: WHATAP_PORT
-        - name: NODE_IP
-          valueFrom:
-            fieldRef:
-              fieldPath: status.hostIP
-        - name: NODE_NAME
-          valueFrom:
-            fieldRef:
-              fieldPath: spec.nodeName
-        resources:
-          limits:
-            cpu: 200m
-            memory: 512Mi
-          requests:
-            cpu: 100m
-            memory: 256Mi
         volumeMounts:
-        - name: proc
-          mountPath: /host/proc
-          readOnly: true
-        - name: sys
-          mountPath: /host/sys
-          readOnly: true`;
-
-    // Add container runtime specific volume mounts
-    if (containerRuntime === 'docker') {
-      standaloneContent += `
-        - name: docker-sock
-          mountPath: /var/run/docker.sock
-          readOnly: true`;
-    } else if (containerRuntime === 'containerd') {
-      standaloneContent += `
-        - name: containerd-sock
-          mountPath: /var/run/containerd/containerd.sock
-          readOnly: true`;
-    }
-
-    standaloneContent += `
+        - name: config-volume
+          mountPath: /app/scrape_config.yaml
+          subPath: scrape_config.yaml
+        - name: logs-volume
+          mountPath: /app/logs
       volumes:
-      - name: proc
-        hostPath:
-          path: /proc
-      - name: sys
-        hostPath:
-          path: /sys`;
+      - name: config-volume
+        configMap:
+          name: whatap-open-agent-config
+      - name: logs-volume
+        emptyDir: {}
 
-    // Add runtime-specific volumes
-    if (containerRuntime === 'docker') {
-      standaloneContent += `
-      - name: docker-sock
-        hostPath:
-          path: /var/run/docker.sock`;
-    } else if (containerRuntime === 'containerd') {
-      standaloneContent += `
-      - name: containerd-sock
-        hostPath:
-          path: /var/run/containerd/containerd.sock`;
-    }
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: whatap-open-agent-config
+  namespace: whatap-monitoring
+data:
+  scrape_config.yaml: |
+    #configuration
+    #CR format configuration
+    features:
+      openAgent:
+        enabled: true
+        targets:`;
 
-    // Add platform-specific configurations
-    if (isOpenShift) {
-      standaloneContent += `
-      securityContext:
-        runAsUser: 0
-        privileged: true`;
-    }
+    // Generate OpenMetrics targets configuration
+    if (useOpenMetrics && openMetricsTargets && openMetricsTargets.length > 0) {
+      openMetricsTargets.forEach((target, index) => {
+        const enabled = target.enabled !== undefined ? target.enabled : true;
+        standaloneContent += `
+          - targetName: ${target.targetName || `target-${index + 1}`}
+            enabled: ${enabled}
+            type: ${target.type || 'PodMonitor'}`;
 
-    if (isGpu) {
+        // Add namespace selector for PodMonitor and ServiceMonitor
+        if (target.type === 'PodMonitor' || target.type === 'ServiceMonitor') {
+          standaloneContent += `
+            namespaceSelector:`;
+
+          // Handle namespace selection based on method
+          if (target.namespaceSelectionMethod === 'label' && target.namespaceLabelKey && target.namespaceLabelValue) {
+            standaloneContent += `
+              matchLabels:
+                ${target.namespaceLabelKey}: "${target.namespaceLabelValue}"`;
+          } else {
+            const namespaceList = target.namespaces ? target.namespaces.split(',').map(ns => ns.trim()).filter(ns => ns) : ['default'];
+            standaloneContent += `
+              matchNames:`;
+            namespaceList.forEach(namespace => {
+              standaloneContent += `
+                - "${namespace}"`;
+            });
+          }
+
+          // Add selector for PodMonitor and ServiceMonitor
+          standaloneContent += `
+            selector:
+              matchLabels:
+                ${target.selectorLabelKey || 'app'}: "${target.selectorLabelValue || 'sample-app'}"`;
+        }
+
+        // Add endpoints configuration
+        standaloneContent += `
+            endpoints:`;
+
+        if (target.type === 'StaticEndpoints') {
+          standaloneContent += `
+            - address: "${target.address || '192.168.1.100:9100'}"
+              scheme: "${target.scheme || 'http'}"
+              path: "${target.path || '/metrics'}"
+              interval: "${target.interval || '30s'}"
+              timeout: "${target.timeout || '30s'}"
+              addNodeLabel: true`;
+        } else {
+          standaloneContent += `
+            - port: "${target.port || 'metrics'}"
+              path: "${target.path || '/metrics'}"
+              interval: "${target.interval || '30s'}"
+              scheme: "${target.scheme || 'http'}"
+              timeout: "${target.timeout || '30s'}"
+              addNodeLabel: true`;
+        }
+
+        // Add metricRelabelConfigs if they exist
+        if (target.metricRelabelConfigs && target.metricRelabelConfigs.length > 0) {
+          const validConfigs = target.metricRelabelConfigs.filter(config => 
+            config.sourceLabels && config.sourceLabels.trim() && 
+            config.action && config.action.trim()
+          );
+
+          if (validConfigs.length > 0) {
+            standaloneContent += `
+              metricRelabelConfigs:`;
+
+            validConfigs.forEach(config => {
+              standaloneContent += `
+              - target_label: wtp_src
+                replacement: "true"
+                action: replace
+              - source_labels: [${config.sourceLabels}]`;
+
+              if (config.regex && config.regex.trim()) {
+                standaloneContent += `
+                regex: "${config.regex}"`;
+              }
+
+              standaloneContent += `
+                action: ${config.action}`;
+
+              if (config.action === 'replace') {
+                if (config.targetLabel && config.targetLabel.trim()) {
+                  standaloneContent += `
+                target_label: ${config.targetLabel}`;
+                }
+                if (config.replacement && config.replacement.trim()) {
+                  standaloneContent += `
+                replacement: "${config.replacement}"`;
+                }
+              }
+            });
+          }
+        } else {
+          // Add default metricRelabelConfigs
+          standaloneContent += `
+              metricRelabelConfigs:
+              - target_label: wtp_src
+                replacement: "true"
+                action: replace`;
+        }
+      });
+    } else {
+      // Add default example targets as shown in the issue
       standaloneContent += `
-      nodeSelector:
-        accelerator: nvidia-tesla-k80  # Adjust based on your GPU type`;
+          # Example ServiceMonitor for kube-apiserver
+          - targetName: kube-apiserver
+            enabled: false
+            type: ServiceMonitor
+            namespaceSelector:
+              matchNames:
+                - "default"
+            selector:
+              matchLabels:
+                component: apiserver
+                provider: kubernetes
+            endpoints:
+            - port: "metrics"
+              path: "/metrics"
+              interval: "30s"
+              scheme: "http"
+              timeout: "30s"
+              addNodeLabel: true
+              metricRelabelConfigs:
+              - target_label: wtp_src
+                replacement: "true"
+                action: replace
+              - source_labels: [__name__]
+                regex: "apiserver.*"
+                action: keep
+          - targetName: dcgm-exporter
+            enabled: true
+            type: PodMonitor
+            namespaceSelector:
+              matchNames:
+                - "whatap-monitoring"
+            selector:
+              matchLabels:
+                gpu: enabled
+                name: whatap-node-agent
+            endpoints:
+            - port: "9400"
+              path: "/metrics"
+              interval: "30s"
+              scheme: "http"
+              timeout: "30s"
+              addNodeLabel: true
+              metricRelabelConfigs:
+              - target_label: wtp_src
+                replacement: "true"
+                action: replace
+              - source_labels: [__name__]
+                regex: "DCGM.*"
+                action: keep`;
     }
 
     files.push({
-      name: 'whatap-standalone.yaml',
+      name: 'whatap-open-agent.yaml',
       language: 'yaml',
       method: 'YAML',
       content: generateHeader('YAML') + standaloneContent
@@ -623,15 +750,15 @@ kubectl get svc -n whatap-monitoring`
   }
 
   if (installMethod === 'yaml') {
-    let applyCommand = `# Apply the standalone YAML configuration
-kubectl apply -f whatap-standalone.yaml`;
+    let applyCommand = `# Apply the whatap-open-agent YAML configuration
+kubectl apply -f whatap-open-agent.yaml`;
 
     if (isOpenShift) {
       applyCommand = `# For OpenShift, you may need to create security context constraints first
-# oc adm policy add-scc-to-user privileged -z whatap-agent -n whatap-monitoring
+# oc adm policy add-scc-to-user privileged -z whatap-open-agent-sa -n whatap-monitoring
 
-# Apply the standalone YAML configuration
-kubectl apply -f whatap-standalone.yaml`;
+# Apply the whatap-open-agent YAML configuration
+kubectl apply -f whatap-open-agent.yaml`;
     }
 
     commands.push({
@@ -646,14 +773,17 @@ kubectl apply -f whatap-standalone.yaml`;
       command: `# Check if all resources are created
 kubectl get all -n whatap-monitoring
 
-# Verify DaemonSet is running on all nodes
-kubectl get daemonset whatap-node-agent -n whatap-monitoring
+# Verify Deployment is running
+kubectl get deployment whatap-open-agent -n whatap-monitoring
 
-# Check agent logs
-kubectl logs -n whatap-monitoring -l app=whatap-node-agent --tail=50
+# Check open agent logs
+kubectl logs -n whatap-monitoring -l app=whatap-open-agent --tail=50
 
-# Verify agents are running on each node
-kubectl get pods -n whatap-monitoring -o wide`
+# Verify ConfigMap is created
+kubectl get configmap whatap-open-agent-config -n whatap-monitoring
+
+# Check the scrape configuration
+kubectl get configmap whatap-open-agent-config -n whatap-monitoring -o yaml`
     });
   }
 
