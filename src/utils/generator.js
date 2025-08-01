@@ -51,7 +51,6 @@ metadata:
     app.kubernetes.io/name: whatap
     app.kubernetes.io/managed-by: whatap-operator
 spec:
-  agentImageVersion: "${imageVersion}"
   features:
     k8sAgent:
       customAgentImageFullName: "${imageVersion === 'stable' ? 'public.ecr.aws/whatap/kube_mon:1.8.5' : 'public.ecr.aws/whatap/kube_mon:latest'}"
@@ -92,9 +91,7 @@ spec:
 
   # GPU monitoring
   gpuMonitoring:
-    enabled: true
-    nodeSelector:
-      accelerator: nvidia-tesla-k80  # Adjust based on your GPU type`;
+    enabled: true`;
     }
 
     if (useApm && apmTargets && apmTargets.length > 0) {
@@ -124,11 +121,26 @@ spec:
             namespaceSelector:`;
 
         // Handle namespace selection based on method
-        if (target.namespaceSelectionMethod === 'label' && target.namespaceLabelKey && target.namespaceLabelValue) {
+        if (target.namespaceSelectionMethod === 'label' && target.namespaceLabels && target.namespaceLabels.length > 0) {
           // Use matchLabels for label-based selection
-          crSpec += `
-              matchLabels:
-                ${target.namespaceLabelKey}: "${target.namespaceLabelValue}"`;
+          const validLabels = target.namespaceLabels.filter(label => label.key && label.key.trim() && label.value && label.value.trim());
+          if (validLabels.length > 0) {
+            crSpec += `
+              matchLabels:`;
+            validLabels.forEach(label => {
+              crSpec += `
+                ${label.key}: "${label.value}"`;
+            });
+          } else {
+            // Fallback to name-based selection if no valid labels
+            const namespaceList = target.namespaces ? target.namespaces.split(',').map(ns => ns.trim()).filter(ns => ns) : ['default'];
+            crSpec += `
+              matchNames:`;
+            namespaceList.forEach(namespace => {
+              crSpec += `
+                - ${namespace}`;
+            });
+          }
         } else {
           // Use matchNames for name-based selection (default)
           const namespaceList = target.namespaces ? target.namespaces.split(',').map(ns => ns.trim()).filter(ns => ns) : ['default'];
@@ -144,8 +156,28 @@ spec:
 
         crSpec += `
             podSelector:
-              matchLabels:
-                ${target.podLabelKey || 'app'}: "${target.podLabelValue || target.name || 'sample-app'}"
+              matchLabels:`;
+        
+        // Handle pod labels - use array if available, fallback to default
+        if (target.podLabels && target.podLabels.length > 0) {
+          const validPodLabels = target.podLabels.filter(label => label.key && label.key.trim() && label.value && label.value.trim());
+          if (validPodLabels.length > 0) {
+            validPodLabels.forEach(label => {
+              crSpec += `
+                ${label.key}: "${label.value}"`;
+            });
+          } else {
+            // Fallback to default if no valid labels
+            crSpec += `
+                app: "${target.name || 'sample-app'}"`;
+          }
+        } else {
+          // Fallback to default if no podLabels array
+          crSpec += `
+                app: "${target.name || 'sample-app'}"`;
+        }
+        
+        crSpec += `
             config:
               mode: default`;
       });
@@ -169,11 +201,26 @@ spec:
           namespaceSelector:`;
 
           // Handle namespace selection based on method
-          if (target.namespaceSelectionMethod === 'label' && target.namespaceLabelKey && target.namespaceLabelValue) {
+          if (target.namespaceSelectionMethod === 'label' && target.namespaceLabels && target.namespaceLabels.length > 0) {
             // Use matchLabels for label-based selection
-            crSpec += `
-            matchLabels:
-              ${target.namespaceLabelKey}: "${target.namespaceLabelValue}"`;
+            const validLabels = target.namespaceLabels.filter(label => label.key && label.key.trim() && label.value && label.value.trim());
+            if (validLabels.length > 0) {
+              crSpec += `
+            matchLabels:`;
+              validLabels.forEach(label => {
+                crSpec += `
+              ${label.key}: "${label.value}"`;
+              });
+            } else {
+              // Fallback to name-based selection if no valid labels
+              const namespaceList = target.namespaces ? target.namespaces.split(',').map(ns => ns.trim()).filter(ns => ns) : ['default'];
+              crSpec += `
+            matchNames:`;
+              namespaceList.forEach(namespace => {
+                crSpec += `
+              - "${namespace}"`;
+              });
+            }
           } else {
             // Use matchNames for name-based selection (default)
             const namespaceList = target.namespaces ? target.namespaces.split(',').map(ns => ns.trim()).filter(ns => ns) : ['default'];
@@ -190,8 +237,26 @@ spec:
           // Add selector for PodMonitor and ServiceMonitor
           crSpec += `
           selector:
-            matchLabels:
-              ${target.selectorLabelKey || 'app'}: "${target.selectorLabelValue || 'sample-app'}"`;
+            matchLabels:`;
+          
+          // Handle selector labels - use array if available, fallback to default
+          if (target.selectorLabels && target.selectorLabels.length > 0) {
+            const validSelectorLabels = target.selectorLabels.filter(label => label.key && label.key.trim() && label.value && label.value.trim());
+            if (validSelectorLabels.length > 0) {
+              validSelectorLabels.forEach(label => {
+                crSpec += `
+              ${label.key}: "${label.value}"`;
+              });
+            } else {
+              // Fallback to default if no valid labels
+              crSpec += `
+              app: "sample-app"`;
+            }
+          } else {
+            // Fallback to default if no selectorLabels array
+            crSpec += `
+              app: "sample-app"`;
+          }
         }
 
         // Add endpoints configuration
@@ -496,10 +561,25 @@ data:
             namespaceSelector:`;
 
           // Handle namespace selection based on method
-          if (target.namespaceSelectionMethod === 'label' && target.namespaceLabelKey && target.namespaceLabelValue) {
-            standaloneContent += `
-              matchLabels:
-                ${target.namespaceLabelKey}: "${target.namespaceLabelValue}"`;
+          if (target.namespaceSelectionMethod === 'label' && target.namespaceLabels && target.namespaceLabels.length > 0) {
+            const validLabels = target.namespaceLabels.filter(label => label.key && label.key.trim() && label.value && label.value.trim());
+            if (validLabels.length > 0) {
+              standaloneContent += `
+              matchLabels:`;
+              validLabels.forEach(label => {
+                standaloneContent += `
+                ${label.key}: "${label.value}"`;
+              });
+            } else {
+              // Fallback to name-based selection if no valid labels
+              const namespaceList = target.namespaces ? target.namespaces.split(',').map(ns => ns.trim()).filter(ns => ns) : ['default'];
+              standaloneContent += `
+              matchNames:`;
+              namespaceList.forEach(namespace => {
+                standaloneContent += `
+                - "${namespace}"`;
+              });
+            }
           } else {
             const namespaceList = target.namespaces ? target.namespaces.split(',').map(ns => ns.trim()).filter(ns => ns) : ['default'];
             standaloneContent += `
@@ -513,8 +593,26 @@ data:
           // Add selector for PodMonitor and ServiceMonitor
           standaloneContent += `
             selector:
-              matchLabels:
-                ${target.selectorLabelKey || 'app'}: "${target.selectorLabelValue || 'sample-app'}"`;
+              matchLabels:`;
+          
+          // Handle selector labels - use array if available, fallback to default
+          if (target.selectorLabels && target.selectorLabels.length > 0) {
+            const validSelectorLabels = target.selectorLabels.filter(label => label.key && label.key.trim() && label.value && label.value.trim());
+            if (validSelectorLabels.length > 0) {
+              validSelectorLabels.forEach(label => {
+                standaloneContent += `
+                ${label.key}: "${label.value}"`;
+              });
+            } else {
+              // Fallback to default if no valid labels
+              standaloneContent += `
+                app: "sample-app"`;
+            }
+          } else {
+            // Fallback to default if no selectorLabels array
+            standaloneContent += `
+                app: "sample-app"`;
+          }
         }
 
         // Add endpoints configuration

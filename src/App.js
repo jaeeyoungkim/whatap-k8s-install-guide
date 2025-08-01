@@ -34,6 +34,8 @@ import {
   TableContainer,
   TableHead,
   TableRow,
+  Tabs,
+  Tab,
 } from '@mui/material';
 import {
   ExpandMore as ExpandMoreIcon,
@@ -43,11 +45,14 @@ import {
   CloudDownload as CloudDownloadIcon,
   Terminal as TerminalIcon,
   Security as SecurityIcon,
+  Code as CodeIcon,
+  Assignment as AssignmentIcon,
 } from '@mui/icons-material';
 import { Prism as SyntaxHighlighter } from 'react-syntax-highlighter';
 import { vscDarkPlus } from 'react-syntax-highlighter/dist/esm/styles/prism';
 import copy from 'copy-to-clipboard';
 import { generateInstallationFiles, generateCommands } from './utils/generator';
+import DemoPage from './DemoPage';
 
 const steps = [
   {
@@ -78,6 +83,7 @@ const steps = [
 ];
 
 function App() {
+  const [currentTab, setCurrentTab] = useState(0);
   const [activeStep, setActiveStep] = useState(0);
   const [copySuccess, setCopySuccess] = useState('');
 
@@ -108,10 +114,8 @@ function App() {
       language: 'java',
       namespaceSelectionMethod: 'name', // 'name' or 'label'
       namespaces: 'default',
-      namespaceLabelKey: '',
-      namespaceLabelValue: '',
-      podLabelKey: 'app',
-      podLabelValue: 'sample-app'
+      namespaceLabels: [{ id: 1, key: '', value: '' }],
+      podLabels: [{ id: 1, key: 'app', value: 'sample-app' }]
     }
   ]);
 
@@ -123,10 +127,8 @@ function App() {
       type: 'PodMonitor', // 'PodMonitor', 'ServiceMonitor', 'StaticEndpoints'
       namespaceSelectionMethod: 'name', // 'name' or 'label'
       namespaces: 'default',
-      namespaceLabelKey: '',
-      namespaceLabelValue: '',
-      selectorLabelKey: 'app',
-      selectorLabelValue: 'sample-app',
+      namespaceLabels: [{ id: 1, key: '', value: '' }],
+      selectorLabels: [{ id: 1, key: 'app', value: 'sample-app' }],
       // Endpoint configuration
       port: 'metrics',
       path: '/metrics',
@@ -198,10 +200,8 @@ function App() {
       language: 'java',
       namespaceSelectionMethod: 'name',
       namespaces: 'default',
-      namespaceLabelKey: '',
-      namespaceLabelValue: '',
-      podLabelKey: 'app',
-      podLabelValue: `app-${newId}`
+      namespaceLabels: [{ id: 1, key: '', value: '' }],
+      podLabels: [{ id: 1, key: 'app', value: `app-${newId}` }]
     }]);
   };
 
@@ -226,10 +226,8 @@ function App() {
       type: 'PodMonitor',
       namespaceSelectionMethod: 'name',
       namespaces: 'default',
-      namespaceLabelKey: '',
-      namespaceLabelValue: '',
-      selectorLabelKey: 'app',
-      selectorLabelValue: `app-${newId}`,
+      namespaceLabels: [{ id: 1, key: '', value: '' }],
+      selectorLabels: [{ id: 1, key: 'app', value: `app-${newId}` }],
       port: 'metrics',
       path: '/metrics',
       interval: '30s',
@@ -258,6 +256,164 @@ function App() {
     setOpenMetricsTargets(openMetricsTargets.map(target => 
       target.id === id ? { ...target, [field]: value } : target
     ));
+  };
+
+  // Label Management Functions for APM Targets
+  const addApmNamespaceLabel = (targetId) => {
+    setApmTargets(apmTargets.map(target => {
+      if (target.id === targetId) {
+        const newLabelId = Math.max(...target.namespaceLabels.map(l => l.id)) + 1;
+        return {
+          ...target,
+          namespaceLabels: [...target.namespaceLabels, { id: newLabelId, key: '', value: '' }]
+        };
+      }
+      return target;
+    }));
+  };
+
+  const removeApmNamespaceLabel = (targetId, labelId) => {
+    setApmTargets(apmTargets.map(target => {
+      if (target.id === targetId && target.namespaceLabels.length > 1) {
+        return {
+          ...target,
+          namespaceLabels: target.namespaceLabels.filter(label => label.id !== labelId)
+        };
+      }
+      return target;
+    }));
+  };
+
+  const updateApmNamespaceLabel = (targetId, labelId, field, value) => {
+    setApmTargets(apmTargets.map(target => {
+      if (target.id === targetId) {
+        return {
+          ...target,
+          namespaceLabels: target.namespaceLabels.map(label =>
+            label.id === labelId ? { ...label, [field]: value } : label
+          )
+        };
+      }
+      return target;
+    }));
+  };
+
+  const addApmPodLabel = (targetId) => {
+    setApmTargets(apmTargets.map(target => {
+      if (target.id === targetId) {
+        const newLabelId = Math.max(...target.podLabels.map(l => l.id)) + 1;
+        return {
+          ...target,
+          podLabels: [...target.podLabels, { id: newLabelId, key: '', value: '' }]
+        };
+      }
+      return target;
+    }));
+  };
+
+  const removeApmPodLabel = (targetId, labelId) => {
+    setApmTargets(apmTargets.map(target => {
+      if (target.id === targetId && target.podLabels.length > 1) {
+        return {
+          ...target,
+          podLabels: target.podLabels.filter(label => label.id !== labelId)
+        };
+      }
+      return target;
+    }));
+  };
+
+  const updateApmPodLabel = (targetId, labelId, field, value) => {
+    setApmTargets(apmTargets.map(target => {
+      if (target.id === targetId) {
+        return {
+          ...target,
+          podLabels: target.podLabels.map(label =>
+            label.id === labelId ? { ...label, [field]: value } : label
+          )
+        };
+      }
+      return target;
+    }));
+  };
+
+  // Label Management Functions for OpenMetrics Targets
+  const addOpenMetricsNamespaceLabel = (targetId) => {
+    setOpenMetricsTargets(openMetricsTargets.map(target => {
+      if (target.id === targetId) {
+        const newLabelId = Math.max(...target.namespaceLabels.map(l => l.id)) + 1;
+        return {
+          ...target,
+          namespaceLabels: [...target.namespaceLabels, { id: newLabelId, key: '', value: '' }]
+        };
+      }
+      return target;
+    }));
+  };
+
+  const removeOpenMetricsNamespaceLabel = (targetId, labelId) => {
+    setOpenMetricsTargets(openMetricsTargets.map(target => {
+      if (target.id === targetId && target.namespaceLabels.length > 1) {
+        return {
+          ...target,
+          namespaceLabels: target.namespaceLabels.filter(label => label.id !== labelId)
+        };
+      }
+      return target;
+    }));
+  };
+
+  const updateOpenMetricsNamespaceLabel = (targetId, labelId, field, value) => {
+    setOpenMetricsTargets(openMetricsTargets.map(target => {
+      if (target.id === targetId) {
+        return {
+          ...target,
+          namespaceLabels: target.namespaceLabels.map(label =>
+            label.id === labelId ? { ...label, [field]: value } : label
+          )
+        };
+      }
+      return target;
+    }));
+  };
+
+  const addOpenMetricsSelectorLabel = (targetId) => {
+    setOpenMetricsTargets(openMetricsTargets.map(target => {
+      if (target.id === targetId) {
+        const newLabelId = Math.max(...target.selectorLabels.map(l => l.id)) + 1;
+        return {
+          ...target,
+          selectorLabels: [...target.selectorLabels, { id: newLabelId, key: '', value: '' }]
+        };
+      }
+      return target;
+    }));
+  };
+
+  const removeOpenMetricsSelectorLabel = (targetId, labelId) => {
+    setOpenMetricsTargets(openMetricsTargets.map(target => {
+      if (target.id === targetId && target.selectorLabels.length > 1) {
+        return {
+          ...target,
+          selectorLabels: target.selectorLabels.filter(label => label.id !== labelId)
+        };
+      }
+      return target;
+    }));
+  };
+
+  const updateOpenMetricsSelectorLabel = (targetId, labelId, field, value) => {
+    setOpenMetricsTargets(openMetricsTargets.map(target => {
+      if (target.id === targetId) {
+        return {
+          ...target,
+          selectorLabels: target.selectorLabels.map(label =>
+            label.id === labelId ? { ...label, [field]: value } : label
+          )
+        };
+      }
+      return target;
+    }));
   };
 
   // MetricRelabelConfigs Management Functions
@@ -778,28 +934,72 @@ function App() {
                         <Typography variant="subtitle2" gutterBottom>
                           대상 Pod 선택
                         </Typography>
-                        <Grid container spacing={2}>
-                          <Grid item xs={12} md={6}>
-                            <TextField
-                              fullWidth
-                              label="Pod 라벨 키"
-                              value={target.podLabelKey}
-                              onChange={(e) => updateApmTarget(target.id, 'podLabelKey', e.target.value)}
+                        <Box sx={{ mb: 2 }}>
+                          <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 1 }}>
+                            <Typography variant="body2" color="text.secondary">
+                              Pod를 선택할 라벨들을 설정하세요. 여러 라벨을 추가할 수 있습니다.
+                            </Typography>
+                            <Button
                               variant="outlined"
-                              helperText="Pod를 선택할 라벨의 키"
-                            />
-                          </Grid>
-                          <Grid item xs={12} md={6}>
-                            <TextField
-                              fullWidth
-                              label="Pod 라벨 값"
-                              value={target.podLabelValue}
-                              onChange={(e) => updateApmTarget(target.id, 'podLabelValue', e.target.value)}
-                              variant="outlined"
-                              helperText="Pod를 선택할 라벨의 값"
-                            />
-                          </Grid>
-                        </Grid>
+                              size="small"
+                              onClick={() => addApmPodLabel(target.id)}
+                              sx={{ minWidth: 'auto' }}
+                            >
+                              + 라벨 추가
+                            </Button>
+                          </Box>
+                          
+                          {target.podLabels && target.podLabels.map((label, labelIndex) => (
+                            <Card key={label.id} variant="outlined" sx={{ mb: 1, p: 2 }}>
+                              <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 1 }}>
+                                <Typography variant="body2" color="text.secondary">
+                                  Pod 라벨 #{labelIndex + 1}
+                                </Typography>
+                                {target.podLabels.length > 1 && (
+                                  <Button
+                                    variant="outlined"
+                                    color="error"
+                                    size="small"
+                                    onClick={() => removeApmPodLabel(target.id, label.id)}
+                                    sx={{ minWidth: 'auto' }}
+                                  >
+                                    삭제
+                                  </Button>
+                                )}
+                              </Box>
+                              <Grid container spacing={2}>
+                                <Grid item xs={12} md={6}>
+                                  <TextField
+                                    fullWidth
+                                    label="라벨 키"
+                                    value={label.key}
+                                    onChange={(e) => updateApmPodLabel(target.id, label.id, 'key', e.target.value)}
+                                    variant="outlined"
+                                    size="small"
+                                    helperText="Pod 라벨의 키 (예: component, provider)"
+                                  />
+                                </Grid>
+                                <Grid item xs={12} md={6}>
+                                  <TextField
+                                    fullWidth
+                                    label="라벨 값"
+                                    value={label.value}
+                                    onChange={(e) => updateApmPodLabel(target.id, label.id, 'value', e.target.value)}
+                                    variant="outlined"
+                                    size="small"
+                                    helperText="Pod 라벨의 값 (예: apiserver, kubernetes)"
+                                  />
+                                </Grid>
+                              </Grid>
+                            </Card>
+                          ))}
+                          
+                          <Alert severity="info" sx={{ mt: 1 }}>
+                            <Typography variant="body2">
+                              <strong>💡 예시:</strong> component=apiserver, provider=kubernetes 처럼 여러 라벨을 조합하여 정확한 Pod를 선택할 수 있습니다.
+                            </Typography>
+                          </Alert>
+                        </Box>
                       </Card>
                     ))}
 
@@ -935,28 +1135,72 @@ function App() {
                                 sx={{ mb: 2 }}
                               />
                             ) : (
-                              <Grid container spacing={2} sx={{ mb: 2 }}>
-                                <Grid item xs={12} md={6}>
-                                  <TextField
-                                    fullWidth
-                                    label="네임스페이스 라벨 키"
-                                    value={target.namespaceLabelKey}
-                                    onChange={(e) => updateOpenMetricsTarget(target.id, 'namespaceLabelKey', e.target.value)}
+                              <Box sx={{ mb: 2 }}>
+                                <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 1 }}>
+                                  <Typography variant="body2" color="text.secondary">
+                                    네임스페이스를 선택할 라벨들을 설정하세요. 여러 라벨을 추가할 수 있습니다.
+                                  </Typography>
+                                  <Button
                                     variant="outlined"
-                                    helperText="네임스페이스를 선택할 라벨의 키"
-                                  />
-                                </Grid>
-                                <Grid item xs={12} md={6}>
-                                  <TextField
-                                    fullWidth
-                                    label="네임스페이스 라벨 값"
-                                    value={target.namespaceLabelValue}
-                                    onChange={(e) => updateOpenMetricsTarget(target.id, 'namespaceLabelValue', e.target.value)}
-                                    variant="outlined"
-                                    helperText="네임스페이스를 선택할 라벨의 값"
-                                  />
-                                </Grid>
-                              </Grid>
+                                    size="small"
+                                    onClick={() => addOpenMetricsNamespaceLabel(target.id)}
+                                    sx={{ minWidth: 'auto' }}
+                                  >
+                                    + 라벨 추가
+                                  </Button>
+                                </Box>
+                                
+                                {target.namespaceLabels && target.namespaceLabels.map((label, labelIndex) => (
+                                  <Card key={label.id} variant="outlined" sx={{ mb: 1, p: 2 }}>
+                                    <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 1 }}>
+                                      <Typography variant="body2" color="text.secondary">
+                                        네임스페이스 라벨 #{labelIndex + 1}
+                                      </Typography>
+                                      {target.namespaceLabels.length > 1 && (
+                                        <Button
+                                          variant="outlined"
+                                          color="error"
+                                          size="small"
+                                          onClick={() => removeOpenMetricsNamespaceLabel(target.id, label.id)}
+                                          sx={{ minWidth: 'auto' }}
+                                        >
+                                          삭제
+                                        </Button>
+                                      )}
+                                    </Box>
+                                    <Grid container spacing={2}>
+                                      <Grid item xs={12} md={6}>
+                                        <TextField
+                                          fullWidth
+                                          label="라벨 키"
+                                          value={label.key}
+                                          onChange={(e) => updateOpenMetricsNamespaceLabel(target.id, label.id, 'key', e.target.value)}
+                                          variant="outlined"
+                                          size="small"
+                                          helperText="네임스페이스 라벨의 키 (예: environment, team)"
+                                        />
+                                      </Grid>
+                                      <Grid item xs={12} md={6}>
+                                        <TextField
+                                          fullWidth
+                                          label="라벨 값"
+                                          value={label.value}
+                                          onChange={(e) => updateOpenMetricsNamespaceLabel(target.id, label.id, 'value', e.target.value)}
+                                          variant="outlined"
+                                          size="small"
+                                          helperText="네임스페이스 라벨의 값 (예: production, backend)"
+                                        />
+                                      </Grid>
+                                    </Grid>
+                                  </Card>
+                                ))}
+                                
+                                <Alert severity="info" sx={{ mt: 1 }}>
+                                  <Typography variant="body2">
+                                    <strong>💡 예시:</strong> environment=production, team=backend 처럼 여러 라벨을 조합하여 정확한 네임스페이스를 선택할 수 있습니다.
+                                  </Typography>
+                                </Alert>
+                              </Box>
                             )}
                           </>
                         )}
@@ -967,28 +1211,72 @@ function App() {
                             <Typography variant="subtitle2" gutterBottom>
                               {target.type === 'PodMonitor' ? '대상 Pod 선택' : '대상 Service 선택'}
                             </Typography>
-                            <Grid container spacing={2} sx={{ mb: 2 }}>
-                              <Grid item xs={12} md={6}>
-                                <TextField
-                                  fullWidth
-                                  label={`${target.type === 'PodMonitor' ? 'Pod' : 'Service'} 라벨 키`}
-                                  value={target.selectorLabelKey}
-                                  onChange={(e) => updateOpenMetricsTarget(target.id, 'selectorLabelKey', e.target.value)}
+                            <Box sx={{ mb: 2 }}>
+                              <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 1 }}>
+                                <Typography variant="body2" color="text.secondary">
+                                  {target.type === 'PodMonitor' ? 'Pod' : 'Service'}를 선택할 라벨들을 설정하세요. 여러 라벨을 추가할 수 있습니다.
+                                </Typography>
+                                <Button
                                   variant="outlined"
-                                  helperText={`${target.type === 'PodMonitor' ? 'Pod' : 'Service'}를 선택할 라벨의 키`}
-                                />
-                              </Grid>
-                              <Grid item xs={12} md={6}>
-                                <TextField
-                                  fullWidth
-                                  label={`${target.type === 'PodMonitor' ? 'Pod' : 'Service'} 라벨 값`}
-                                  value={target.selectorLabelValue}
-                                  onChange={(e) => updateOpenMetricsTarget(target.id, 'selectorLabelValue', e.target.value)}
-                                  variant="outlined"
-                                  helperText={`${target.type === 'PodMonitor' ? 'Pod' : 'Service'}를 선택할 라벨의 값`}
-                                />
-                              </Grid>
-                            </Grid>
+                                  size="small"
+                                  onClick={() => addOpenMetricsSelectorLabel(target.id)}
+                                  sx={{ minWidth: 'auto' }}
+                                >
+                                  + 라벨 추가
+                                </Button>
+                              </Box>
+                              
+                              {target.selectorLabels && target.selectorLabels.map((label, labelIndex) => (
+                                <Card key={label.id} variant="outlined" sx={{ mb: 1, p: 2 }}>
+                                  <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 1 }}>
+                                    <Typography variant="body2" color="text.secondary">
+                                      {target.type === 'PodMonitor' ? 'Pod' : 'Service'} 라벨 #{labelIndex + 1}
+                                    </Typography>
+                                    {target.selectorLabels.length > 1 && (
+                                      <Button
+                                        variant="outlined"
+                                        color="error"
+                                        size="small"
+                                        onClick={() => removeOpenMetricsSelectorLabel(target.id, label.id)}
+                                        sx={{ minWidth: 'auto' }}
+                                      >
+                                        삭제
+                                      </Button>
+                                    )}
+                                  </Box>
+                                  <Grid container spacing={2}>
+                                    <Grid item xs={12} md={6}>
+                                      <TextField
+                                        fullWidth
+                                        label="라벨 키"
+                                        value={label.key}
+                                        onChange={(e) => updateOpenMetricsSelectorLabel(target.id, label.id, 'key', e.target.value)}
+                                        variant="outlined"
+                                        size="small"
+                                        helperText={`${target.type === 'PodMonitor' ? 'Pod' : 'Service'} 라벨의 키 (예: app, component)`}
+                                      />
+                                    </Grid>
+                                    <Grid item xs={12} md={6}>
+                                      <TextField
+                                        fullWidth
+                                        label="라벨 값"
+                                        value={label.value}
+                                        onChange={(e) => updateOpenMetricsSelectorLabel(target.id, label.id, 'value', e.target.value)}
+                                        variant="outlined"
+                                        size="small"
+                                        helperText={`${target.type === 'PodMonitor' ? 'Pod' : 'Service'} 라벨의 값 (예: metrics-app, apiserver)`}
+                                      />
+                                    </Grid>
+                                  </Grid>
+                                </Card>
+                              ))}
+                              
+                              <Alert severity="info" sx={{ mt: 1 }}>
+                                <Typography variant="body2">
+                                  <strong>💡 예시:</strong> app=metrics-app, component=apiserver 처럼 여러 라벨을 조합하여 정확한 {target.type === 'PodMonitor' ? 'Pod' : 'Service'}를 선택할 수 있습니다.
+                                </Typography>
+                              </Alert>
+                            </Box>
                           </>
                         )}
 
@@ -1340,94 +1628,129 @@ function App() {
     }
   };
 
+  const handleTabChange = (event, newValue) => {
+    setCurrentTab(newValue);
+  };
+
   return (
-    <Container maxWidth="lg" sx={{ py: 4 }}>
+    <Container maxWidth="xl" sx={{ py: 4 }}>
       <Paper elevation={0} sx={{ p: 4, backgroundColor: 'background.paper' }}>
         <Box textAlign="center" mb={4}>
           <Typography variant="h4" component="h1" gutterBottom>
             WhaTap Kubernetes 모니터링
           </Typography>
-          <Typography variant="h6" color="text.secondary" gutterBottom>
-            설치 가이드
-          </Typography>
           <Typography variant="body1" color="text.secondary">
-            환경을 구성하고 맞춤형 설치 파일을 생성하세요
+            설치 가이드 및 YAML 변환 데모
           </Typography>
         </Box>
 
-        <Stepper activeStep={activeStep} orientation="vertical">
-          {steps.map((step, index) => (
-            <Step key={step.label}>
-              <StepLabel
-                optional={
-                  index === steps.length - 1 ? (
-                    <Typography variant="caption">마지막 단계</Typography>
-                  ) : null
-                }
-                StepIconComponent={({ active, completed }) => (
-                  <Box
-                    sx={{
-                      display: 'flex',
-                      alignItems: 'center',
-                      justifyContent: 'center',
-                      width: 40,
-                      height: 40,
-                      borderRadius: '50%',
-                      backgroundColor: completed
-                        ? 'primary.main'
-                        : active
-                        ? 'primary.light'
-                        : 'grey.300',
-                      color: completed || active ? 'white' : 'grey.600',
-                    }}
-                  >
-                    {completed ? <CheckCircleIcon /> : step.icon}
-                  </Box>
-                )}
-              >
-                <Typography variant="h6">{step.label}</Typography>
-                <Typography variant="body2" color="text.secondary">
-                  {step.description}
-                </Typography>
-              </StepLabel>
-              <StepContent>
-                <Box sx={{ mb: 2 }}>
-                  {renderStepContent(index)}
-                </Box>
-                <Box sx={{ mb: 2 }}>
-                  <Button
-                    variant="contained"
-                    onClick={handleNext}
-                    sx={{ mt: 1, mr: 1 }}
-                  >
-                    {index === steps.length - 1 ? '완료' : '계속'}
-                  </Button>
-                  <Button
-                    disabled={index === 0}
-                    onClick={handleBack}
-                    sx={{ mt: 1, mr: 1 }}
-                  >
-                    이전
-                  </Button>
-                </Box>
-              </StepContent>
-            </Step>
-          ))}
-        </Stepper>
+        {/* Tab Navigation */}
+        <Box sx={{ borderBottom: 1, borderColor: 'divider', mb: 3 }}>
+          <Tabs value={currentTab} onChange={handleTabChange} centered>
+            <Tab 
+              icon={<AssignmentIcon />} 
+              label="설치 가이드" 
+              iconPosition="start"
+            />
+            <Tab 
+              icon={<CodeIcon />} 
+              label="YAML 변환 데모" 
+              iconPosition="start"
+            />
+          </Tabs>
+        </Box>
 
-        {activeStep === steps.length && (
-          <Paper square elevation={0} sx={{ p: 3, mt: 3, textAlign: 'center' }}>
-            <Typography variant="h6" gutterBottom>
-              모든 단계가 완료되었습니다!
-            </Typography>
-            <Typography variant="body1" paragraph>
-              WhaTap Kubernetes 모니터링 구성이 준비되었습니다.
-              생성된 파일과 명령어를 사용하여 설치를 완료하세요.
-            </Typography>
-            <Button onClick={handleReset} sx={{ mt: 1, mr: 1 }}>
-              구성 초기화
-            </Button>
-          </Paper>
+        {/* Tab Content */}
+        {currentTab === 0 && (
+          <Box>
+            <Box textAlign="center" mb={4}>
+              <Typography variant="h6" color="text.secondary" gutterBottom>
+                단계별 설치 가이드
+              </Typography>
+              <Typography variant="body2" color="text.secondary">
+                환경을 구성하고 맞춤형 설치 파일을 생성하세요
+              </Typography>
+            </Box>
+
+            <Stepper activeStep={activeStep} orientation="vertical">
+              {steps.map((step, index) => (
+                <Step key={step.label}>
+                  <StepLabel
+                    optional={
+                      index === steps.length - 1 ? (
+                        <Typography variant="caption">마지막 단계</Typography>
+                      ) : null
+                    }
+                    StepIconComponent={({ active, completed }) => (
+                      <Box
+                        sx={{
+                          display: 'flex',
+                          alignItems: 'center',
+                          justifyContent: 'center',
+                          width: 40,
+                          height: 40,
+                          borderRadius: '50%',
+                          backgroundColor: completed
+                            ? 'primary.main'
+                            : active
+                            ? 'primary.light'
+                            : 'grey.300',
+                          color: completed || active ? 'white' : 'grey.600',
+                        }}
+                      >
+                        {completed ? <CheckCircleIcon /> : step.icon}
+                      </Box>
+                    )}
+                  >
+                    <Typography variant="h6">{step.label}</Typography>
+                    <Typography variant="body2" color="text.secondary">
+                      {step.description}
+                    </Typography>
+                  </StepLabel>
+                  <StepContent>
+                    <Box sx={{ mb: 2 }}>
+                      {renderStepContent(index)}
+                    </Box>
+                    <Box sx={{ mb: 2 }}>
+                      <Button
+                        variant="contained"
+                        onClick={handleNext}
+                        sx={{ mt: 1, mr: 1 }}
+                      >
+                        {index === steps.length - 1 ? '완료' : '계속'}
+                      </Button>
+                      <Button
+                        disabled={index === 0}
+                        onClick={handleBack}
+                        sx={{ mt: 1, mr: 1 }}
+                      >
+                        이전
+                      </Button>
+                    </Box>
+                  </StepContent>
+                </Step>
+              ))}
+            </Stepper>
+
+            {activeStep === steps.length && (
+              <Paper square elevation={0} sx={{ p: 3, mt: 3, textAlign: 'center' }}>
+                <Typography variant="h6" gutterBottom>
+                  모든 단계가 완료되었습니다!
+                </Typography>
+                <Typography variant="body1" paragraph>
+                  WhaTap Kubernetes 모니터링 구성이 준비되었습니다.
+                  생성된 파일과 명령어를 사용하여 설치를 완료하세요.
+                </Typography>
+                <Button onClick={handleReset} sx={{ mt: 1, mr: 1 }}>
+                  구성 초기화
+                </Button>
+              </Paper>
+            )}
+          </Box>
+        )}
+
+        {currentTab === 1 && (
+          <DemoPage />
         )}
       </Paper>
     </Container>

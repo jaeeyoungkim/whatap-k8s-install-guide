@@ -15,6 +15,14 @@ This project provides an improved, user-friendly interface for configuring and i
 - **Generated Files**: Review and copy configuration files
 - **Installation Commands**: Execute step-by-step installation instructions
 
+### 🔧 **YAML Conversion Demo Page**
+- **Real-time YAML Generation**: See how configuration options instantly affect generated YAML
+- **Interactive Configuration Panel**: Modify installation settings with buttons and switches
+- **Side-by-side Comparison**: Configuration options on the left, generated YAML on the right
+- **Multiple Installation Methods**: Test Operator, Helm, and standalone YAML configurations
+- **Platform-specific Settings**: Toggle GKE, OpenShift, Istio, and GPU monitoring options
+- **Feature Demonstrations**: Enable/disable APM and OpenMetrics to see YAML changes
+
 ### 🚀 **Installation Methods Supported**
 1. **Operator-based (Recommended)**: Full-featured installation with central management
 2. **Helm Direct Install**: Quick setup using Helm charts
@@ -81,11 +89,24 @@ This project provides an improved, user-friendly interface for configuring and i
 
 ### Usage
 
+#### Installation Guide (Step-by-Step Wizard)
 1. **Access Key Verification**: Enter your WhaTap project credentials
 2. **Configure Installation**: Select your preferred installation method and environment
 3. **Choose Features**: Enable additional monitoring capabilities as needed
 4. **Generate Files**: Review the generated configuration files
 5. **Execute Commands**: Follow the step-by-step installation instructions
+
+#### YAML Conversion Demo Page
+1. **Switch to Demo Tab**: Click on "YAML 변환 데모" tab at the top of the application
+2. **Configure Options**: Use the left panel to modify installation settings:
+   - **Basic Settings**: Change installation method, image version, container runtime
+   - **Platform Settings**: Toggle GKE, OpenShift, Istio, GPU monitoring
+   - **Additional Features**: Enable/disable APM and OpenMetrics
+3. **View Real-time Changes**: Watch the right panel update YAML files instantly
+4. **Copy Generated YAML**: Use the copy button to copy any generated YAML to clipboard
+5. **Reset Configuration**: Use the reset button to return to default settings
+
+This demo page is particularly useful for backend developers who want to understand how different UI choices translate to Kubernetes YAML configurations.
 
 ## Project Structure
 
@@ -96,9 +117,11 @@ whatap-k8s-install-guide/
 ├── src/
 │   ├── utils/
 │   │   └── generator.js        # Configuration file and command generators
-│   ├── App.js                  # Main application component
+│   ├── App.js                  # Main application component with tab navigation
+│   ├── DemoPage.js            # YAML conversion demo page component
 │   └── index.js               # Application entry point
 ├── package.json               # Dependencies and scripts
+├── test-demo.js              # Test script for YAML generation
 └── README.md                 # This file
 ```
 
