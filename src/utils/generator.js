@@ -88,10 +88,13 @@ spec:
 
     if (isGpu) {
       crSpec += `
-
-  # GPU monitoring
-  gpuMonitoring:
-    enabled: true`;
+      namespace: "whatap-monitoring"
+      masterAgent:
+        enabled: true
+      nodeAgent:
+        enabled: true
+      gpuMonitoring:
+        enabled: true`;
     }
 
     if (useApm && apmTargets && apmTargets.length > 0) {
@@ -183,11 +186,22 @@ spec:
       });
     }
 
-    if (useOpenMetrics && openMetricsTargets && openMetricsTargets.length > 0) {
+    // Add openAgent configuration if either GPU or OpenMetrics is enabled
+    if (isGpu || (useOpenMetrics && openMetricsTargets && openMetricsTargets.length > 0)) {
       crSpec += `
     openAgent:
-      enabled: true
+      enabled: true`;
+      
+      // Add targets only if OpenMetrics is enabled
+      if (useOpenMetrics && openMetricsTargets && openMetricsTargets.length > 0) {
+        crSpec += `
       targets:`;
+      } else {
+        // For GPU-only case, no targets needed
+      }
+    }
+
+    if (useOpenMetrics && openMetricsTargets && openMetricsTargets.length > 0) {
 
       // Generate configuration for each OpenMetrics target
       openMetricsTargets.forEach((target, index) => {

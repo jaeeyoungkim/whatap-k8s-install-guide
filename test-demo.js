@@ -97,6 +97,28 @@ try {
     console.log(`- ${file.name}: ${file.content.length} characters`);
   });
 
+  // Test GPU monitoring
+  console.log('\n=== Test 6: GPU Monitoring Configuration ===');
+  const gpuConfig = { ...testConfig, isGpu: true };
+  const files6 = generateInstallationFiles(gpuConfig);
+  console.log(`Generated ${files6.length} files:`);
+  files6.forEach(file => {
+    console.log(`- ${file.name}: ${file.content.length} characters`);
+    // Check if GPU monitoring configuration is present
+    if (file.name === 'whatap-agent-cr.yaml' && file.content.includes('gpuMonitoring')) {
+      console.log('  ✅ GPU monitoring configuration found');
+      if (file.content.includes('openAgent:') && file.content.includes('enabled: true')) {
+        console.log('  ✅ openAgent configuration found');
+      }
+      if (file.content.includes('namespace: "whatap-monitoring"')) {
+        console.log('  ✅ namespace configuration found');
+      }
+      if (file.content.includes('masterAgent:') && file.content.includes('nodeAgent:')) {
+        console.log('  ✅ masterAgent and nodeAgent configuration found');
+      }
+    }
+  });
+
   console.log('\n✅ All tests passed! YAML generation is working correctly.');
 
 } catch (error) {

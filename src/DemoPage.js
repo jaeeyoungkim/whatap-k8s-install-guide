@@ -24,6 +24,9 @@ import {
   IconButton,
   Tooltip,
   Button,
+  InputLabel,
+  Select,
+  MenuItem,
 } from '@mui/material';
 import {
   ExpandMore as ExpandMoreIcon,
@@ -81,7 +84,16 @@ function DemoPage() {
       interval: '30s',
       scheme: 'http',
       address: '192.168.1.100:9100',
-      metricRelabelConfigs: []
+      metricRelabelConfigs: [
+        {
+          id: 1,
+          sourceLabels: '__name__',
+          regex: '.*',
+          action: 'keep',
+          targetLabel: '',
+          replacement: ''
+        }
+      ]
     }
   ]);
 
@@ -167,7 +179,16 @@ function DemoPage() {
       interval: '30s',
       scheme: 'http',
       address: '192.168.1.100:9100',
-      metricRelabelConfigs: []
+      metricRelabelConfigs: [
+        {
+          id: 1,
+          sourceLabels: '__name__',
+          regex: '.*',
+          action: 'keep',
+          targetLabel: '',
+          replacement: ''
+        }
+      ]
     }]);
   };
 
@@ -181,6 +202,53 @@ function DemoPage() {
     setOpenMetricsTargets(openMetricsTargets.map(target => 
       target.id === id ? { ...target, [field]: value } : target
     ));
+  };
+
+  // MetricRelabelConfigs Management Functions
+  const addOpenMetricsRelabelConfig = (targetId) => {
+    setOpenMetricsTargets(openMetricsTargets.map(target => {
+      if (target.id === targetId) {
+        const newConfigId = Math.max(...target.metricRelabelConfigs.map(c => c.id), 0) + 1;
+        return {
+          ...target,
+          metricRelabelConfigs: [...target.metricRelabelConfigs, {
+            id: newConfigId,
+            sourceLabels: '__name__',
+            regex: '',
+            action: 'keep',
+            targetLabel: '',
+            replacement: ''
+          }]
+        };
+      }
+      return target;
+    }));
+  };
+
+  const removeOpenMetricsRelabelConfig = (targetId, configId) => {
+    setOpenMetricsTargets(openMetricsTargets.map(target => {
+      if (target.id === targetId && target.metricRelabelConfigs.length > 1) {
+        return {
+          ...target,
+          metricRelabelConfigs: target.metricRelabelConfigs.filter(config => config.id !== configId)
+        };
+      }
+      return target;
+    }));
+  };
+
+  const updateOpenMetricsRelabelConfig = (targetId, configId, field, value) => {
+    setOpenMetricsTargets(openMetricsTargets.map(target => {
+      if (target.id === targetId) {
+        return {
+          ...target,
+          metricRelabelConfigs: target.metricRelabelConfigs.map(config =>
+            config.id === configId ? { ...config, [field]: value } : config
+          )
+        };
+      }
+      return target;
+    }));
   };
 
   // OpenMetrics Label Management Functions
@@ -332,9 +400,9 @@ function DemoPage() {
       </Paper>
 
       <Grid container spacing={3}>
-        {/* Left Panel - Configuration Options */}
-        <Grid item xs={12} md={5}>
-          <Paper elevation={2} sx={{ p: 3, height: 'fit-content', position: 'sticky', top: 20 }}>
+        {/* Configuration Panel - Full Width */}
+        <Grid item xs={12}>
+          <Paper elevation={2} sx={{ p: 3, mb: 3 }}>
             <Typography variant="h5" gutterBottom color="primary">
               설치 옵션 설정
             </Typography>
@@ -982,6 +1050,135 @@ function DemoPage() {
                               </Grid>
                             </Grid>
                           )}
+
+                          <Grid container spacing={2} sx={{ mt: 1 }}>
+                            <Grid item xs={12} md={6}>
+                              <FormControl fullWidth variant="outlined" size="small">
+                                <InputLabel>스키마</InputLabel>
+                                <Select
+                                  value={target.scheme}
+                                  onChange={(e) => updateOpenMetricsTarget(target.id, 'scheme', e.target.value)}
+                                  label="스키마"
+                                >
+                                  <MenuItem value="http">HTTP</MenuItem>
+                                  <MenuItem value="https">HTTPS</MenuItem>
+                                </Select>
+                              </FormControl>
+                            </Grid>
+                          </Grid>
+
+                          {/* Metric Relabel Configs Section */}
+                          <Card variant="outlined" sx={{ mt: 2, p: 2, backgroundColor: 'grey.50' }}>
+                            <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 2 }}>
+                              <Typography variant="subtitle2" fontWeight="medium">
+                                메트릭 필터링 설정 (MetricRelabelConfigs)
+                              </Typography>
+                              <Button
+                                variant="outlined"
+                                size="small"
+                                onClick={() => addOpenMetricsRelabelConfig(target.id)}
+                                sx={{ minWidth: 'auto' }}
+                              >
+                                + 규칙 추가
+                              </Button>
+                            </Box>
+
+                            {target.metricRelabelConfigs.map((config, configIndex) => (
+                              <Card key={config.id} variant="outlined" sx={{ mb: 2, p: 2, backgroundColor: 'white' }}>
+                                <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 2 }}>
+                                  <Typography variant="body2" fontWeight="medium">
+                                    규칙 #{configIndex + 1}
+                                  </Typography>
+                                  {target.metricRelabelConfigs.length > 1 && (
+                                    <Button
+                                      variant="outlined"
+                                      color="error"
+                                      size="small"
+                                      onClick={() => removeOpenMetricsRelabelConfig(target.id, config.id)}
+                                      sx={{ minWidth: 'auto' }}
+                                    >
+                                      삭제
+                                    </Button>
+                                  )}
+                                </Box>
+
+                                <Grid container spacing={2}>
+                                  <Grid item xs={12} md={4}>
+                                    <TextField
+                                      fullWidth
+                                      label="소스 라벨"
+                                      value={config.sourceLabels}
+                                      onChange={(e) => updateOpenMetricsRelabelConfig(target.id, config.id, 'sourceLabels', e.target.value)}
+                                      variant="outlined"
+                                      helperText="예: __name__, instance"
+                                    />
+                                  </Grid>
+                                  <Grid item xs={12} md={4}>
+                                    <TextField
+                                      fullWidth
+                                      label="정규식 패턴"
+                                      value={config.regex}
+                                      onChange={(e) => updateOpenMetricsRelabelConfig(target.id, config.id, 'regex', e.target.value)}
+                                      variant="outlined"
+                                      helperText="예: apiserver.*, http_.*"
+                                    />
+                                  </Grid>
+                                  <Grid item xs={12} md={4}>
+                                    <FormControl fullWidth variant="outlined">
+                                      <FormLabel component="legend" sx={{ fontSize: '1rem', mb: 1 }}>액션</FormLabel>
+                                      <RadioGroup
+                                        value={config.action}
+                                        onChange={(e) => updateOpenMetricsRelabelConfig(target.id, config.id, 'action', e.target.value)}
+                                      >
+                                        <FormControlLabel value="keep" control={<Radio />} label="Keep" />
+                                        <FormControlLabel value="drop" control={<Radio />} label="Drop" />
+                                        <FormControlLabel value="replace" control={<Radio />} label="Replace" />
+                                      </RadioGroup>
+                                    </FormControl>
+                                  </Grid>
+                                  {config.action === 'replace' && (
+                                    <>
+                                      <Grid item xs={12} md={6}>
+                                        <TextField
+                                          fullWidth
+                                          label="대상 라벨"
+                                          value={config.targetLabel}
+                                          onChange={(e) => updateOpenMetricsRelabelConfig(target.id, config.id, 'targetLabel', e.target.value)}
+                                          variant="outlined"
+                                          helperText="새 라벨 이름"
+                                        />
+                                      </Grid>
+                                      <Grid item xs={12} md={6}>
+                                        <TextField
+                                          fullWidth
+                                          label="교체 값"
+                                          value={config.replacement}
+                                          onChange={(e) => updateOpenMetricsRelabelConfig(target.id, config.id, 'replacement', e.target.value)}
+                                          variant="outlined"
+                                          helperText="예: ${1}, static_value"
+                                        />
+                                      </Grid>
+                                    </>
+                                  )}
+                                </Grid>
+                              </Card>
+                            ))}
+
+                            <Alert severity="warning" sx={{ mt: 2 }}>
+                              <Typography variant="body2">
+                                <strong>⚠️ 중요:</strong> 메트릭 필터링 규칙은 반드시 하나 이상 설정해야 합니다. 규칙이 없으면 메트릭이 수집되지 않습니다.
+                              </Typography>
+                            </Alert>
+                            <Alert severity="info" sx={{ mt: 1 }}>
+                              <Typography variant="body2">
+                                <strong>💡 메트릭 필터링 예시:</strong><br/>
+                                • <strong>모든 메트릭 수집:</strong> 소스 라벨 "__name__", 정규식 ".*", 액션 "keep"<br/>
+                                • <strong>특정 메트릭만 수집:</strong> 소스 라벨 "__name__", 정규식 "apiserver_request_total", 액션 "keep"<br/>
+                                • <strong>패턴으로 수집:</strong> 소스 라벨 "__name__", 정규식 "apiserver.*", 액션 "keep"<br/>
+                                • <strong>라벨 변경:</strong> 소스 라벨 "method", 정규식 "(.*)", 액션 "replace", 대상 라벨 "http_method", 교체 값 "$1"
+                              </Typography>
+                            </Alert>
+                          </Card>
                         </Card>
                       ))}
                     </CardContent>
@@ -1010,8 +1207,8 @@ function DemoPage() {
           </Paper>
         </Grid>
 
-        {/* Right Panel - Generated YAML */}
-        <Grid item xs={12} md={7}>
+        {/* YAML Panel - Full Width */}
+        <Grid item xs={12}>
           <Paper elevation={2} sx={{ p: 3 }}>
             <Box display="flex" alignItems="center" justifyContent="between" mb={2}>
               <Typography variant="h5" color="primary" sx={{ flexGrow: 1 }}>
@@ -1078,10 +1275,10 @@ function DemoPage() {
           💡 사용 방법
         </Typography>
         <Typography variant="body2" paragraph>
-          1. <strong>왼쪽 패널</strong>에서 원하는 설치 옵션을 선택하세요.
+          1. <strong>설치 옵션 설정</strong>에서 원하는 설치 옵션을 선택하세요.
         </Typography>
         <Typography variant="body2" paragraph>
-          2. <strong>오른쪽 패널</strong>에서 실시간으로 업데이트되는 YAML을 확인하세요.
+          2. <strong>아래 YAML 파일</strong>에서 실시간으로 업데이트되는 결과를 확인하세요.
         </Typography>
         <Typography variant="body2" paragraph>
           3. 각 옵션이 YAML의 어떤 부분에 영향을 주는지 관찰하세요.

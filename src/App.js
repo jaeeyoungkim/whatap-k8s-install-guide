@@ -237,7 +237,7 @@ function App() {
         {
           id: 1,
           sourceLabels: '__name__',
-          regex: '',
+          regex: '.*',
           action: 'keep',
           targetLabel: '',
           replacement: ''
@@ -1452,9 +1452,15 @@ function App() {
                           </Card>
                         ))}
 
-                        <Alert severity="info" sx={{ mt: 2 }}>
+                        <Alert severity="warning" sx={{ mt: 2 }}>
+                          <Typography variant="body2">
+                            <strong>⚠️ 중요:</strong> 메트릭 필터링 규칙은 반드시 하나 이상 설정해야 합니다. 규칙이 없으면 메트릭이 수집되지 않습니다.
+                          </Typography>
+                        </Alert>
+                        <Alert severity="info" sx={{ mt: 1 }}>
                           <Typography variant="body2">
                             <strong>💡 메트릭 필터링 예시:</strong><br/>
+                            • <strong>모든 메트릭 수집:</strong> 소스 라벨 "__name__", 정규식 ".*", 액션 "keep"<br/>
                             • <strong>특정 메트릭만 수집:</strong> 소스 라벨 "__name__", 정규식 "apiserver_request_total", 액션 "keep"<br/>
                             • <strong>패턴으로 수집:</strong> 소스 라벨 "__name__", 정규식 "apiserver.*", 액션 "keep"<br/>
                             • <strong>라벨 변경:</strong> 소스 라벨 "method", 정규식 "(.*)", 액션 "replace", 대상 라벨 "http_method", 교체 값 "$1"
